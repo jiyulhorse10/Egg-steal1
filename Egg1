@@ -1,0 +1,104 @@
+--[[\
+    Project: Steal an Egg Ultimate Auto Farm & Auto Steal Suite
+    Author: 10년 차 Luau 전문가
+--]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- [설정 및 필터 옵션]
+local Config = {
+    Enabled = false,         -- 오토팜 메인 스위치
+    AutoSteal = true,        -- 타 플레이어 기지/맵 계란 자동 스틸
+    TargetTier = "All",      -- 등급 필터 ("All" 또는 특정 등급 명칭)
+    LoopDelay = 0.2          -- 서버 부하/킥 방지 딜레이
+}
+
+-- [1] 모바일(델타) 최적화 깔끔한 UI 생성
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StealAnEgg_Hub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Size = UDim2.new(0, 130, 0, 50)
+ToggleBtn.Position = UDim2.new(0.03, 0, 0.12, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+ToggleBtn.BorderColor3 = Color3.fromRGB(255, 170, 0)
+ToggleBtn.BorderSizePixel = 2
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 170, 0)
+ToggleBtn.TextSize = 15
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.Text = "AUTO: OFF"
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true -- 손으로 드래그 이동 가능
+ToggleBtn.Parent = ScreenGui
+
+-- 버튼 클릭 시 켜고 끄기
+ToggleBtn.MouseButton1Click:Connect(function()
+    Config.Enabled = not Config.Enabled
+    if Config.Enabled then
+        ToggleBtn.Text = "AUTO: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 0)
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    else
+        ToggleBtn.Text = "AUTO: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 170, 0)
+    end
+end)
+
+-- [2] 계란 오브젝트 정밀 탐색 및 자동 수집 루프
+local function FindAndStealEggs()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local rootPart = character.HumanoidRootPart
+
+    -- 워크스페이스 내에서 계란(Egg) 관련 모델이나 파트 탐색
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if not Config.Enabled then break end
+        
+        if obj:IsA("BasePart") or obj:IsA("Model") then
+            local primaryPart = obj:IsA("Model") and obj.PrimaryPart or obj
+            if primaryPart then
+                local nameLower = obj.Name:lower()
+                
+                -- 계란 키워드 감지
+                if nameLower:find("egg") or nameLower:find("spawn") then
+                    -- 거리가 너무 멀지 않거나 맵 전체의 유효한 계란인 경우 순간이동 후 상호작용
+                    local dist = (rootPart.Position - primaryPart.Position).Magnitude
+                    
+                    if dist < 1500 then -- 너무 먼 거리를 한 번에 튀는 것 방지
+                        -- 1. 계란 위치로 이동
+                        rootPart.CFrame = CFrame.new(primaryPart.Position + Vector3.new(0, 3, 0))
+                        
+                        -- 2. 터치 프로롬프트나 프롬프트 트리거 실행
+                        for _, prompt in ipairs(obj:GetDescendants()) do
+                            if prompt:IsA("ProximityPrompt") then
+                                fireproximityprompt(prompt)
+                            end
+                        end
+                        
+                        task.wait(0.1)
+                        break
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- 백그라운드 자동화 스레드 구동
+task.spawn(function()
+    while true do
+        task.wait(Config.LoopDelay)
+        if Config.Enabled then
+            pcall(FindAndStealEggs)
+        end
+    end
+end)
+
+print("[+] Steal an Egg Pro Script Loaded Successfully!")
